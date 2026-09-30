@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QBOFlow — Free CSV to QBO Converter, 100% Private</title>
+  <meta name="description" content="Convert CSV bank statements to QuickBooks Web Connect (.QBO) files entirely in your browser. No uploads, no accounts, works offline." />
+  <link rel="canonical" href="https://akatetron.github.io/QBOFlow/" />
+  <meta name="theme-color" content="#059669" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23059669'/%3E%3Cpath d='M8 12h14l-4-4M24 20H10l4 4' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <meta name="keywords" content="csv to qbo, convert csv to qbo, csv to quickbooks, bank statement to qbo, qbo converter, web connect, ofx converter, free qbo converter" />
+  <!-- Social sharing previews (Facebook, LinkedIn, X, Slack, WhatsApp, Discord) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="QBOFlow" />
+  <meta property="og:url" content="https://akatetron.github.io/QBOFlow/" />
+  <meta property="og:title" content="QBOFlow — Free CSV to QuickBooks (.QBO) Converter" />
+  <meta property="og:description" content="Convert bank CSV statements to QuickBooks Web Connect files 100% in your browser. Zero uploads, no sign-up, free." />
+  <meta property="og:image" content="https://akatetron.github.io/QBOFlow/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="QBOFlow — Free CSV to QuickBooks (.QBO) Converter" />
+  <meta name="twitter:description" content="Convert bank CSV statements to .QBO 100% in your browser. Zero uploads, no sign-up, free." />
+  <meta name="twitter:image" content="https://akatetron.github.io/QBOFlow/og-image.png" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebApplication",
+        "name": "QBOFlow",
+        "url": "https://akatetron.github.io/QBOFlow/",
+        "description": "Free, private CSV to QuickBooks Web Connect (.QBO) converter that runs entirely in the browser.",
+        "applicationCategory": "FinanceApplication",
+        "operatingSystem": "Any (web browser)",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "Is my bank data uploaded anywhere?",
+             "acceptedAnswer": { "@type": "Answer", "text": "No. QBOFlow reads your CSV with the browser's FileReader API and builds the .QBO file with JavaScript on your device. There is no server to send data to." } },
+          { "@type": "Question", "name": "How do I import the .QBO file into QuickBooks?",
+             "acceptedAnswer": { "@type": "Answer", "text": "QuickBooks Desktop: File > Utilities > Import > Web Connect Files. QuickBooks Online: Banking > Upload transactions, then select the .QBO file." } },
+          { "@type": "Question", "name": "Will re-importing an overlapping statement create duplicates?",
+             "acceptedAnswer": { "@type": "Answer", "text": "No. Each transaction gets a stable ID derived from its date, amount and payee, so QuickBooks recognizes transactions it has already imported." } }
+        ]
+      }
+    ]
+  }
+  </script>
+  <!-- Security: connect-src 'none' means no script on this page (including a compromised CDN) can send data anywhere via fetch/XHR/WebSocket/beacon. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <!-- Pinned versions with Subresource Integrity: the browser refuses to run them if the CDN serves modified code. -->
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js" integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/lucide@1.49.0/dist/umd/lucide.min.js" integrity="sha384-7mWwAGEOOlxvEBR+Mpy0eVhGL+9abGHkZtVoTs+dvrWkI5g00lyMaAxRIK+rqXGt" crossorigin="anonymous"></script>
+  <style>
+    .step-panel { animation: fadeIn .25s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .dropzone-active { border-color: #10b981 !important; background-color: #ecfdf5 !important; }
+    select, input[type="text"] { min-width: 0; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+      <a href="#" class="flex items-center gap-2 font-bold text-slate-900">
+        <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-600 text-white">
+          <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+        </span>
+        <span>QBO<span class="text-emerald-600">Flow</span></span>
+      </a>
+      <div class="hidden sm:flex items-center gap-2 text-sm text-slate-500">
+        <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
+        No uploads · No accounts · No tracking of your data
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1">
+    <!-- Hero -->
+    <section class="bg-gradient-to-b from-white to-slate-50">
+      <div class="max-w-5xl mx-auto px-4 pt-12 pb-8 text-center">
+        <span class="inline-flex items-center gap-2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 px-4 py-1.5 text-sm font-semibold shadow-sm">
+          🔒 100% Client-Side Processing (Works Offline)
+        </span>
+        <h1 class="mt-6 text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
+          Convert CSV Bank Statements to QuickBooks (.QBO) — <span class="text-emerald-600">100% Free &amp; Private</span>
+        </h1>
+        <p class="mt-4 text-lg text-slate-600 italic max-w-2xl mx-auto">
+          Your financial data never leaves your browser. Zero uploads, zero accounts required.
+        </p>
+      </div>
+    </section>
+
+    <!-- Wizard -->
+    <section class="max-w-5xl mx-auto px-4 pb-16">
+      <!-- Stepper -->
+      <ol id="stepper" class="grid grid-cols-4 gap-2 mb-6 text-xs sm:text-sm"></ol>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
+
+        <!-- STEP 1: Upload -->
+        <div id="step-1" class="step-panel p-6 sm:p-10">
+          <label id="dropzone" for="file-input"
+                 class="flex flex-col items-center justify-center text-center cursor-pointer rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:border-emerald-500 hover:bg-emerald-50/50 transition px-6 py-14">
+            <span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 mb-4">
+              <i data-lucide="upload-cloud" class="w-8 h-8"></i>
+            </span>
+            <span class="text-lg font-semibold text-slate-900">Drag &amp; drop your bank CSV here</span>
+            <span class="mt-1 text-slate-500">or <span class="text-emerald-700 font-medium underline">browse your computer</span></span>
+            <span class="mt-4 text-xs text-slate-400">Accepted: .csv · File is read locally with the FileReader API — nothing is sent anywhere</span>
+            <input id="file-input" type="file" accept=".csv,text/csv" class="sr-only" />
+          </label>
+          <div id="upload-error" class="hidden mt-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm"></div>
+          <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <button id="sample-btn" type="button" class="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-emerald-700">
+              <i data-lucide="flask-conical" class="w-4 h-4"></i> No file handy? Try a sample CSV
+            </button>
+            <ul class="flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-slate-500">
+              <li class="flex items-center gap-1.5"><i data-lucide="wifi-off" class="w-4 h-4 text-emerald-600"></i>Works offline</li>
+              <li class="flex items-center gap-1.5"><i data-lucide="user-x" class="w-4 h-4 text-emerald-600"></i>No sign-up</li>
+              <li class="flex items-center gap-1.5"><i data-lucide="server-off" class="w-4 h-4 text-emerald-600"></i>No server</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- STEP 2: Mapping -->
+        <div id="step-2" class="step-panel hidden p-6 sm:p-10">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <div>
+              <h2 class="text-xl font-bold text-slate-900">Map your columns</h2>
+              <p class="text-sm text-slate-500">We guessed the best matches from your headers. Adjust anything that looks off.</p>
+            </div>
+            <span id="file-chip" class="inline-flex items-center gap-2 rounded-full bg-slate-100 text-slate-700 px-3 py-1 text-sm max-w-full">
+              <i data-lucide="file-text" class="w-4 h-4 shrink-0"></i><span id="file-name" class="truncate"></span>
+            </span>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-8">
+            <!-- Column mapping -->
+            <fieldset class="space-y-5">
+              <legend class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Transaction columns</legend>
+
+              <div>
+                <label for="col-date" class="block text-sm font-medium text-slate-700 mb-1">Date column</label>
+                <select id="col-date" class="col-select w-full rounded-lg border-slate-300 border px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"></select>
+              </div>
+
+              <div>
+                <label for="col-payee" class="block text-sm font-medium text-slate-700 mb-1">Payee / Description column</label>
+                <select id="col-payee" class="col-select w-full rounded-lg border-slate-300 border px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"></select>
+              </div>
+
+              <div>
+                <label for="col-memo" class="block text-sm font-medium text-slate-700 mb-1">Memo column <span class="text-slate-400 font-normal">(optional)</span></label>
+                <select id="col-memo" class="col-select w-full rounded-lg border-slate-300 border px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"></select>
+              </div>
+
+              <div>
+                <span class="block text-sm font-medium text-slate-700 mb-2">Amount format</span>
+                <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-lg" role="radiogroup">
+                  <label class="amount-mode-opt cursor-pointer text-center text-sm rounded-md px-3 py-2">
+                    <input type="radio" name="amount-mode" value="single" class="sr-only" checked />Single “Amount” column
+                  </label>
+                  <label class="amount-mode-opt cursor-pointer text-center text-sm rounded-md px-3 py-2">
+                    <input type="radio" name="amount-mode" value="split" class="sr-only" />Separate Debit / Credit
+                  </label>
+                </div>
+              </div>
+
+              <div id="amount-single-wrap">
+                <label for="col-amount" class="block text-sm font-medium text-slate-700 mb-1">Amount column <span class="text-slate-400 font-normal">(negative = expense)</span></label>
+                <select id="col-amount" class="col-select w-full rounded-lg border-slate-300 border px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"></select>
+              </div>
+
+              <div id="amount-split-wrap" class="hidden grid grid-cols-2 gap-3">
+                <div>
+                  <label for="col-debit" class="block text-sm font-medium text-slate-700 mb-1">Debit (money out)</label>
+                  <select id="col-debit" class="col-select w-full rounded-lg border-slate-300 border px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"></select>
+                </div>
+                <div>
+                  <label for="col-credit" class="block text-sm font-medium text-slate-700 mb-1">Credit (money in)</label>
+                  <select id="col-credit" class="col-select w-full rounded-lg border-slate-300 border px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"></select>
+                </div>
+              </div>
+
+              <label class="flex items-start gap-2 text-sm text-slate-600">
+                <input id="flip-sign" type="checkbox" class="mt-0.5 accent-emerald-600" />
+                <span>Flip signs <span class="text-slate-400">(use if expenses show as positive, common in credit-card exports)</span></span>
+              </label>
+
+              <div>
+                <label for="date-format" class="block text-sm font-medium text-slate-700 mb-1">Date format</label>
+                <select id="date-format" class="w-full rounded-lg border-slate-300 border px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                  <option value="auto">Auto-detect</option>
+                  <option value="MDY">MM/DD/YYYY</option>
+                  <option value="DMY">DD/MM/YYYY</option>
+                  <option value="YMD">YYYY-MM-DD</option>
+                </select>
+                <p id="date-detected" class="mt-1 text-xs text-emerald-700"></p>
+              </div>
+            </fieldset>
+
+            <!-- Bank configuration -->
+            <fieldset class="space-y-5">
+              <legend class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Bank &amp; account</legend>
+
+              <div class="relative" id="bank-combo">
+                <label for="bank-search" class="block text-sm font-medium text-slate-700 mb-1">Bank (INTU.BID)</label>
+                <div class="relative">
+                  <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                  <input id="bank-search" type="text" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="bank-list"
+                         class="w-full rounded-lg border-slate-300 border pl-9 pr-20 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                         placeholder="Search banks or type a BID…" />
+                  <span id="bank-bid-chip" class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-mono bg-emerald-100 text-emerald-800 rounded px-2 py-0.5"></span>
+                </div>
+                <ul id="bank-list" role="listbox"
+                    class="hidden absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg text-sm"></ul>
+                <p class="mt-1 text-xs text-slate-400">QuickBooks uses this to recognize the file. If unsure, “Generic / Default (3000)” works for most imports.</p>
+              </div>
+
+              <div>
+                <label for="acct-type" class="block text-sm font-medium text-slate-700 mb-1">Account type</label>
+                <select id="acct-type" class="w-full rounded-lg border-slate-300 border px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                  <option value="CHECKING">CHECKING</option>
+                  <option value="SAVINGS">SAVINGS</option>
+                  <option value="CREDITCARD">CREDITCARD</option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label for="routing-num" class="block text-sm font-medium text-slate-700 mb-1">Routing number</label>
+                  <input id="routing-num" type="text" inputmode="numeric" value="123456789"
+                         class="w-full rounded-lg border-slate-300 border px-3 py-2 font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label for="acct-num" class="block text-sm font-medium text-slate-700 mb-1">Account number</label>
+                  <input id="acct-num" type="text" inputmode="numeric" value="123456789"
+                         class="w-full rounded-lg border-slate-300 border px-3 py-2 font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                </div>
+              </div>
+              <p class="text-xs text-slate-400 -mt-2">Tip: use the same account number every time so QuickBooks maps imports to the same account.</p>
+
+              <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600 flex gap-3">
+                <i data-lucide="info" class="w-5 h-5 text-emerald-600 shrink-0"></i>
+                <div id="mapping-summary">—</div>
+              </div>
+            </fieldset>
+          </div>
+
+          <div id="mapping-error" class="hidden mt-6 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm"></div>
+
+          <div class="mt-8 flex justify-between gap-3">
+            <button type="button" data-goto="1" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50">
+              <i data-lucide="arrow-left" class="w-4 h-4"></i> Change file
+            </button>
+            <button type="button" id="to-preview" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 font-semibold text-white hover:bg-emerald-700 shadow-sm">
+              Preview transactions <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 3: Preview -->
+        <div id="step-3" class="step-panel hidden p-6 sm:p-10">
+          <div class="mb-6">
+            <h2 class="text-xl font-bold text-slate-900">Preview</h2>
+            <p class="text-sm text-slate-500">Showing the first 10 transactions exactly as they will appear in your .QBO file.</p>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div class="rounded-xl border border-slate-200 p-4">
+              <div class="text-xs uppercase tracking-wider text-slate-400">Transactions</div>
+              <div id="stat-count" class="mt-1 text-2xl font-bold text-slate-900">0</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 p-4">
+              <div class="text-xs uppercase tracking-wider text-slate-400">Net total</div>
+              <div id="stat-net" class="mt-1 text-2xl font-bold">0.00</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 p-4">
+              <div class="text-xs uppercase tracking-wider text-slate-400">Money in / out</div>
+              <div class="mt-1 text-sm font-semibold"><span id="stat-in" class="text-emerald-700">0.00</span> / <span id="stat-out" class="text-red-600">0.00</span></div>
+            </div>
+            <div class="rounded-xl border border-slate-200 p-4">
+              <div class="text-xs uppercase tracking-wider text-slate-400">Date range</div>
+              <div id="stat-range" class="mt-1 text-sm font-semibold font-mono text-slate-900">—</div>
+            </div>
+          </div>
+
+          <div id="skip-warning" class="hidden mb-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm"></div>
+
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-slate-500 text-left">
+                <tr>
+                  <th class="px-4 py-3 font-medium">#</th>
+                  <th class="px-4 py-3 font-medium">Date (YYYYMMDD)</th>
+                  <th class="px-4 py-3 font-medium">Payee</th>
+                  <th class="px-4 py-3 font-medium">Type</th>
+                  <th class="px-4 py-3 font-medium text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="preview-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+
+          <div class="mt-8 flex justify-between gap-3">
+            <button type="button" data-goto="2" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50">
+              <i data-lucide="arrow-left" class="w-4 h-4"></i> Adjust mapping
+            </button>
+            <button type="button" data-goto="4" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 font-semibold text-white hover:bg-emerald-700 shadow-sm">
+              Looks good <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 4: Download -->
+        <div id="step-4" class="step-panel hidden p-6 sm:p-10">
+          <div class="text-center max-w-xl mx-auto">
+            <span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 mb-4">
+              <i data-lucide="check-circle-2" class="w-8 h-8"></i>
+            </span>
+            <h2 class="text-2xl font-bold text-slate-900">Your QuickBooks file is ready</h2>
+            <p id="download-summary" class="mt-2 text-slate-500"></p>
+            <button id="download-btn" type="button"
+                    class="mt-6 inline-flex items-center justify-center gap-3 w-full sm:w-auto rounded-xl bg-emerald-600 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 focus:ring-4 focus:ring-emerald-300 focus:outline-none">
+              <i data-lucide="download" class="w-6 h-6"></i> Download .QBO File
+            </button>
+            <p id="download-done" class="hidden mt-3 text-sm text-emerald-700 font-medium">Downloaded! In QuickBooks: File → Utilities → Import → Web Connect Files.</p>
+            <div class="mt-6 flex justify-center gap-6 text-sm">
+              <button type="button" data-goto="3" class="text-slate-500 hover:text-slate-800 inline-flex items-center gap-1"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back to preview</button>
+              <button type="button" id="restart-btn" class="text-slate-500 hover:text-slate-800 inline-flex items-center gap-1"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Convert another file</button>
+            </div>
+          </div>
+
+          <!-- Partner recommendations.
+               When you join an affiliate program: replace the href with your affiliate URL,
+               set rel="sponsored noopener", change "Independent picks" to "Sponsored",
+               and change the note under the cards to an affiliate disclosure. -->
+          <div class="mt-12 border-t border-slate-200 pt-8">
+            <div class="flex items-baseline justify-between gap-3 mb-4">
+              <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400">Recommended for small businesses</h3>
+              <span class="text-xs text-slate-400">Independent picks</span>
+            </div>
+            <div class="grid md:grid-cols-3 gap-4">
+              <article class="flex flex-col rounded-xl border border-slate-200 p-5 hover:border-emerald-300 hover:shadow-sm transition">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 text-slate-700 mb-3"><i data-lucide="credit-card" class="w-5 h-5"></i></span>
+                <h4 class="font-semibold text-slate-900">Business Credit Cards</h4>
+                <p class="mt-1 text-sm text-slate-500 flex-1">Compare business credit cards with cash-back and sign-up bonuses to earn rewards on everyday spend.</p>
+                <a href="https://www.nerdwallet.com/best/small-business/small-business-credit-cards" rel="noopener noreferrer" target="_blank" class="mt-4 inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-600 text-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-50">
+                  Compare cards <i data-lucide="external-link" class="w-4 h-4"></i>
+                </a>
+              </article>
+              <article class="flex flex-col rounded-xl border border-slate-200 p-5 hover:border-emerald-300 hover:shadow-sm transition">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 text-slate-700 mb-3"><i data-lucide="users" class="w-5 h-5"></i></span>
+                <h4 class="font-semibold text-slate-900">Automated Payroll &amp; HR</h4>
+                <p class="mt-1 text-sm text-slate-500 flex-1">Run payroll with Gusto: automatic tax filings, benefits and employee onboarding in one place.</p>
+                <a href="https://gusto.com/" rel="noopener noreferrer" target="_blank" class="mt-4 inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-600 text-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-50">
+                  Explore Gusto <i data-lucide="external-link" class="w-4 h-4"></i>
+                </a>
+              </article>
+              <article class="flex flex-col rounded-xl border border-slate-200 p-5 hover:border-emerald-300 hover:shadow-sm transition">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 text-slate-700 mb-3"><i data-lucide="cloud" class="w-5 h-5"></i></span>
+                <h4 class="font-semibold text-slate-900">Modern Cloud Accounting</h4>
+                <p class="mt-1 text-sm text-slate-500 flex-1">Move to QuickBooks Online to sync bank feeds automatically. Check the site for current offers.</p>
+                <a href="https://quickbooks.intuit.com/online/" rel="noopener noreferrer" target="_blank" class="mt-4 inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-600 text-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-50">
+                  See QuickBooks Online <i data-lucide="external-link" class="w-4 h-4"></i>
+                </a>
+              </article>
+            </div>
+            <p class="mt-4 text-xs text-slate-400">These are independent recommendations, not paid placements. Clicking a link never shares your statement data — it stays on your device.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- How it works / FAQ -->
+      <div class="mt-12 grid md:grid-cols-3 gap-6 text-sm">
+        <div>
+          <h3 class="font-semibold text-slate-900 flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4 text-emerald-600"></i>Why is this private?</h3>
+          <p class="mt-2 text-slate-500">The page reads your file with the browser's FileReader API and builds the .QBO with JavaScript. There is no server endpoint to send data to. Disconnect from the internet after the page loads and it still works.</p>
+        </div>
+        <div>
+          <h3 class="font-semibold text-slate-900 flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 text-emerald-600"></i>How do I import?</h3>
+          <p class="mt-2 text-slate-500">QuickBooks Desktop: File → Utilities → Import → Web Connect Files. QuickBooks Online: Banking → Upload transactions → select the .QBO file.</p>
+        </div>
+        <div>
+          <h3 class="font-semibold text-slate-900 flex items-center gap-2"><i data-lucide="copy-check" class="w-4 h-4 text-emerald-600"></i>Duplicate-safe</h3>
+          <p class="mt-2 text-slate-500">Each transaction gets a stable ID derived from its date, amount and payee, so re-importing an overlapping statement won't create duplicates.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-slate-200 bg-white">
+    <div class="max-w-5xl mx-auto px-4 py-6 text-xs text-slate-400 flex flex-col sm:flex-row justify-between gap-2">
+      <span>© <span id="year"></span> QBOFlow · Not affiliated with Intuit Inc. QuickBooks is a trademark of Intuit Inc.</span>
+      <span>Processed locally in your browser. Always review imports before reconciling.</span>
+    </div>
+  </footer>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ------------------------------------------------------------------ *
+   * Config
+   * ------------------------------------------------------------------ */
+  const BANKS = [
+    { name: 'Generic / Default', bid: '3000' },
+    { name: 'Chase', bid: '3000' },
+    { name: 'Wells Fargo', bid: '3000' },
+    { name: 'Bank of America', bid: '1880' },
+    { name: 'Citi', bid: '2494' },
+  ];
+
+  const MAX_FILE_BYTES = 50 * 1024 * 1024;
+
+  const HEADER_HINTS = {
+    date:   [/^date$/i, /post(ed|ing)?\s*date/i, /trans(action)?\.?\s*date/i, /date/i],
+    payee:  [/^payee$/i, /^description$/i, /^desc/i, /payee/i, /description/i, /merchant/i, /^name$/i, /narrative/i, /details?/i, /memo/i],
+    memo:   [/^memo$/i, /^notes?$/i, /reference/i, /^ref/i],
+    amount: [/^amount$/i, /amount/i, /^amt$/i, /value/i],
+    debit:  [/debit/i, /withdraw/i, /money\s*out/i, /paid\s*out/i, /^out$/i, /charge/i],
+    credit: [/credit/i, /deposit/i, /money\s*in/i, /paid\s*in/i, /^in$/i, /payment/i],
+  };
+
+  const SAMPLE_CSV = [
+    'Posting Date,Description,Amount,Type,Balance',
+    '01/03/2026,"STARBUCKS STORE #1234 SEATTLE WA",-6.45,DEBIT_CARD,4993.55',
+    '01/04/2026,"ACME CORP PAYROLL DIRECT DEP",2450.00,ACH_CREDIT,7443.55',
+    '01/05/2026,"AMAZON MKTPLACE PMTS AMZN.COM/BILL",-45.20,DEBIT_CARD,7398.35',
+    '01/07/2026,"SHELL OIL 57444 AUSTIN TX",-52.18,DEBIT_CARD,7346.17',
+    '01/09/2026,"ADOBE *CREATIVE CLOUD",-59.99,DEBIT_CARD,7286.18',
+    '01/12/2026,"CLIENT INVOICE #1042 - ZELLE FROM J SMITH",1200.00,QUICKPAY_CREDIT,8486.18',
+    '01/14/2026,"COMCAST BUSINESS",-129.95,ACH_DEBIT,8356.23',
+    '01/15/2026,"OFFICE DEPOT #221",-87.34,DEBIT_CARD,8268.89',
+    '01/18/2026,"UBER *TRIP HELP.UBER.COM",-23.10,DEBIT_CARD,8245.79',
+    '01/21/2026,"GUSTO PAYROLL FEES",-80.00,ACH_DEBIT,8165.79',
+    '01/25/2026,"INTEREST PAYMENT",1.37,ACH_CREDIT,8167.16',
+    '01/28/2026,"WEWORK MEMBERSHIP",-450.00,ACH_DEBIT,7717.16',
+  ].join('\n');
+
+  /* ------------------------------------------------------------------ *
+   * State
+   * ------------------------------------------------------------------ */
+  const state = {
+    step: 1,
+    maxStep: 1,
+    fileName: '',
+    headers: [],
+    rows: [],          // array of arrays (data rows only)
+    detectedFormat: 'MDY',
+    bank: BANKS[0],
+    result: null,      // { txns, skipped, ... }
+  };
+
+  /* ------------------------------------------------------------------ *
+   * DOM helpers
+   * ------------------------------------------------------------------ */
+  const $ = (id) => document.getElementById(id);
+  const refreshIcons = () => { if (window.lucide) window.lucide.createIcons(); };
+
+  function showError(el, msg) {
+    el.textContent = msg;
+    el.classList.toggle('hidden', !msg);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Stepper / navigation
+   * ------------------------------------------------------------------ */
+  const STEP_LABELS = ['Upload', 'Map columns', 'Preview', 'Download'];
+
+  function renderStepper() {
+    const ol = $('stepper');
+    ol.innerHTML = '';
+    STEP_LABELS.forEach((label, i) => {
+      const n = i + 1;
+      const active = n === state.step;
+      const done = n < state.step;
+      const reachable = n <= state.maxStep;
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.disabled = !reachable;
+      btn.className = 'w-full flex items-center gap-2 rounded-lg px-3 py-2 border transition text-left ' +
+        (active ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+          : done ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+          : reachable ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+          : 'bg-white border-slate-200 text-slate-400 cursor-not-allowed');
+      const num = document.createElement('span');
+      num.className = 'inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold shrink-0 ' +
+        (active ? 'bg-white text-emerald-700' : done ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500');
+      num.textContent = done ? '✓' : String(n);
+      const txt = document.createElement('span');
+      txt.className = 'hidden sm:inline font-medium truncate';
+      txt.textContent = label;
+      btn.append(num, txt);
+      btn.addEventListener('click', () => goTo(n));
+      li.appendChild(btn);
+      ol.appendChild(li);
+    });
+  }
+
+  function goTo(n) {
+    if (n > state.maxStep) return;
+    if (n >= 3) {
+      convert();
+      if (!state.result || !state.result.txns.length) { goTo(2); validateMapping(true); return; }
+    }
+    state.step = n;
+    for (let i = 1; i <= 4; i++) $('step-' + i).classList.toggle('hidden', i !== n);
+    if (n === 3) renderPreview();
+    if (n === 4) renderDownloadSummary();
+    renderStepper();
+    window.scrollTo({ top: $('stepper').offsetTop - 16, behavior: 'smooth' });
+  }
+
+  document.querySelectorAll('[data-goto]').forEach((b) =>
+    b.addEventListener('click', () => goTo(Number(b.dataset.goto))));
+
+  /* ------------------------------------------------------------------ *
+   * Step 1: file loading
+   * ------------------------------------------------------------------ */
+  const dropzone = $('dropzone');
+  ['dragenter', 'dragover'].forEach((ev) => dropzone.addEventListener(ev, (e) => {
+    e.preventDefault(); dropzone.classList.add('dropzone-active');
+  }));
+  ['dragleave', 'drop'].forEach((ev) => dropzone.addEventListener(ev, (e) => {
+    e.preventDefault(); dropzone.classList.remove('dropzone-active');
+  }));
+  dropzone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+  // Prevent the browser from navigating to a file dropped outside the zone
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
+
+  $('file-input').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) handleFile(file);
+    e.target.value = '';
+  });
+
+  $('sample-btn').addEventListener('click', () => loadCsvText(SAMPLE_CSV, 'sample-statement.csv'));
+
+  function handleFile(file) {
+    showError($('upload-error'), '');
+    const isCsv = /\.csv$/i.test(file.name) || /csv/i.test(file.type);
+    if (!isCsv) { showError($('upload-error'), 'Please choose a .csv file.'); return; }
+    if (!parserReady()) return;
+    if (file.size > MAX_FILE_BYTES) {
+      showError($('upload-error'), 'That file is larger than 50 MB. Please split it into smaller statements.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => loadCsvText(String(reader.result), file.name);
+    reader.onerror = () => showError($('upload-error'), 'Could not read that file.');
+    reader.readAsText(file);
+  }
+
+  function parserReady() {
+    if (typeof Papa !== 'undefined') return true;
+    showError($('upload-error'), 'The CSV parser failed to load. Please reload the page while online once, then you can work offline.');
+    return false;
+  }
+
+  function loadCsvText(text, name) {
+    if (!parserReady()) return;
+    showError($('upload-error'), '');
+    text = text.replace(/^﻿/, ''); // strip BOM
+    const parsed = Papa.parse(text, { header: false, skipEmptyLines: 'greedy' });
+    const all = parsed.data.filter((r) => Array.isArray(r) && r.some((c) => String(c).trim() !== ''));
+    if (all.length < 2) { showError($('upload-error'), 'That CSV has no data rows we could read.'); return; }
+
+    // Find the header row: many bank exports put account info above the real header.
+    // Use the first row whose non-empty cell count matches the most common row width.
+    const widths = {};
+    all.forEach((r) => { widths[r.length] = (widths[r.length] || 0) + 1; });
+    const modalWidth = Number(Object.keys(widths).sort((a, b) => widths[b] - widths[a])[0]);
+    let headerIdx = all.findIndex((r) => r.length === modalWidth && r.filter((c) => String(c).trim()).length >= Math.min(2, modalWidth));
+    if (headerIdx < 0) headerIdx = 0;
+
+    const rawHeaders = all[headerIdx];
+    const seen = new Map();
+    state.headers = rawHeaders.map((h, i) => {
+      let label = String(h).trim() || `Column ${i + 1}`;
+      const n = (seen.get(label) || 0) + 1;
+      seen.set(label, n);
+      if (n > 1) label = `${label} (${n})`;
+      return label;
+    });
+    state.rows = all.slice(headerIdx + 1);
+    state.fileName = name;
+    state.result = null;
+
+    $('file-name').textContent = `${name} · ${state.rows.length} rows`;
+    populateColumnSelects();
+    autoDetectDateFormat();
+    state.maxStep = 2;
+    goTo(2);
+    onConfigChange();
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Step 2: mapping
+   * ------------------------------------------------------------------ */
+  function guessColumn(kind, exclude = []) {
+    for (const re of HEADER_HINTS[kind]) {
+      const idx = state.headers.findIndex((h, i) => !exclude.includes(i) && re.test(h));
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  }
+
+  function fillSelect(sel, selectedIdx, allowNone) {
+    sel.innerHTML = '';
+    if (allowNone) sel.add(new Option('— None —', '-1'));
+    else if (selectedIdx < 0) sel.add(new Option('Select a column…', '-1'));
+    state.headers.forEach((h, i) => {
+      const sample = state.rows.find((r) => r[i] && String(r[i]).trim());
+      const text = sample ? `${h}  (e.g. ${String(sample[i]).trim().slice(0, 24)})` : h;
+      sel.add(new Option(text, String(i)));
+    });
+    sel.value = String(selectedIdx);
+  }
+
+  function populateColumnSelects() {
+    const date = guessColumn('date');
+    const amount = guessColumn('amount', [date]);
+    const debit = guessColumn('debit', [date]);
+    const credit = guessColumn('credit', [date, debit]);
+    const payee = guessColumn('payee', [date, amount, debit, credit]);
+    const memo = guessColumn('memo', [date, amount, debit, credit, payee]);
+
+    fillSelect($('col-date'), date, false);
+    fillSelect($('col-payee'), payee, false);
+    fillSelect($('col-memo'), memo, true);
+    fillSelect($('col-amount'), amount, false);
+    fillSelect($('col-debit'), debit, false);
+    fillSelect($('col-credit'), credit, false);
+
+    const split = amount < 0 && debit >= 0 && credit >= 0;
+    setAmountMode(split ? 'split' : 'single');
+  }
+
+  function getAmountMode() {
+    return document.querySelector('input[name="amount-mode"]:checked').value;
+  }
+
+  function setAmountMode(mode) {
+    document.querySelector(`input[name="amount-mode"][value="${mode}"]`).checked = true;
+    document.querySelectorAll('.amount-mode-opt').forEach((lbl) => {
+      const on = lbl.querySelector('input').checked;
+      lbl.className = 'amount-mode-opt cursor-pointer text-center text-sm rounded-md px-3 py-2 transition ' +
+        (on ? 'bg-white shadow-sm font-semibold text-emerald-700' : 'text-slate-500 hover:text-slate-800');
+    });
+    $('amount-single-wrap').classList.toggle('hidden', mode !== 'single');
+    $('amount-split-wrap').classList.toggle('hidden', mode !== 'split');
+  }
+
+  document.querySelectorAll('input[name="amount-mode"]').forEach((r) =>
+    r.addEventListener('change', () => { setAmountMode(r.value); onConfigChange(); }));
+
+  ['col-date', 'col-payee', 'col-memo', 'col-amount', 'col-debit', 'col-credit', 'date-format', 'flip-sign', 'acct-type']
+    .forEach((id) => $(id).addEventListener('change', () => {
+      if (id === 'col-date') autoDetectDateFormat();
+      onConfigChange();
+    }));
+  ['acct-num', 'routing-num'].forEach((id) => $(id).addEventListener('input', onConfigChange));
+
+  $('to-preview').addEventListener('click', () => {
+    if (!validateMapping(true)) return;
+    state.maxStep = Math.max(state.maxStep, 4);
+    goTo(3);
+  });
+
+  function readConfig() {
+    return {
+      dateCol: Number($('col-date').value),
+      payeeCol: Number($('col-payee').value),
+      memoCol: Number($('col-memo').value),
+      mode: getAmountMode(),
+      amountCol: Number($('col-amount').value),
+      debitCol: Number($('col-debit').value),
+      creditCol: Number($('col-credit').value),
+      flip: $('flip-sign').checked,
+      dateFormat: $('date-format').value === 'auto' ? state.detectedFormat : $('date-format').value,
+      bid: state.bank.bid,
+      acctType: $('acct-type').value,
+      acctId: sanitizeId($('acct-num').value) || '123456789',
+      bankId: sanitizeId($('routing-num').value) || '123456789',
+    };
+  }
+
+  function validateMapping(show) {
+    const c = readConfig();
+    let msg = '';
+    if (c.dateCol < 0) msg = 'Choose which column holds the transaction date.';
+    else if (c.payeeCol < 0) msg = 'Choose which column holds the payee / description.';
+    else if (c.mode === 'single' && c.amountCol < 0) msg = 'Choose the amount column.';
+    else if (c.mode === 'split' && (c.debitCol < 0 || c.creditCol < 0)) msg = 'Choose both the debit and credit columns.';
+    else if (c.mode === 'split' && c.debitCol === c.creditCol) msg = 'Debit and credit must be different columns.';
+    else {
+      convert();
+      if (!state.result.txns.length) msg = 'No valid transactions found with this mapping. Check the date format and amount columns.';
+    }
+    if (show) showError($('mapping-error'), msg);
+    return !msg;
+  }
+
+  function onConfigChange() {
+    showError($('mapping-error'), '');
+    const ok = validateMapping(false);
+    const r = state.result;
+    const summary = $('mapping-summary');
+    if (ok && r) {
+      summary.innerHTML = '';
+      const b = document.createElement('strong');
+      b.textContent = `${r.txns.length} transactions`;
+      summary.append(b, ` ready to convert` + (r.skipped.length ? `, ${r.skipped.length} rows will be skipped.` : '.'));
+    } else {
+      summary.textContent = 'Complete the mapping to see how many transactions will be converted.';
+    }
+    if (!ok) state.maxStep = Math.min(state.maxStep, 2);
+    renderStepper();
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Bank combobox (searchable)
+   * ------------------------------------------------------------------ */
+  const bankSearch = $('bank-search');
+  const bankList = $('bank-list');
+
+  function selectBank(bank) {
+    state.bank = bank;
+    bankSearch.value = bank.name;
+    $('bank-bid-chip').textContent = 'BID ' + bank.bid;
+    closeBankList();
+  }
+
+  function renderBankList() {
+    const q = bankSearch.value.trim().toLowerCase();
+    const matches = BANKS.filter((b) => !q || b.name.toLowerCase().includes(q) || b.bid.includes(q));
+    bankList.innerHTML = '';
+    const items = matches.slice();
+    if (/^\d{3,6}$/.test(q) && !BANKS.some((b) => b.bid === q)) items.push({ name: `Custom BID ${q}`, bid: q, custom: true });
+    if (!items.length) {
+      const li = document.createElement('li');
+      li.className = 'px-3 py-2 text-slate-400';
+      li.textContent = 'No match. Type a numeric BID to use a custom value.';
+      bankList.appendChild(li);
+    }
+    items.forEach((b) => {
+      const li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      li.className = 'flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-emerald-50' +
+        (b === state.bank ? ' bg-emerald-50 font-semibold' : '');
+      const n = document.createElement('span'); n.textContent = b.name;
+      const bid = document.createElement('span'); bid.className = 'font-mono text-xs text-slate-500'; bid.textContent = b.bid;
+      li.append(n, bid);
+      li.addEventListener('mousedown', (e) => { e.preventDefault(); selectBank(b); onConfigChange(); });
+      bankList.appendChild(li);
+    });
+    bankList.classList.remove('hidden');
+    bankSearch.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeBankList() {
+    bankList.classList.add('hidden');
+    bankSearch.setAttribute('aria-expanded', 'false');
+  }
+
+  bankSearch.addEventListener('focus', () => { bankSearch.select(); renderBankList(); });
+  bankSearch.addEventListener('input', renderBankList);
+  bankSearch.addEventListener('blur', () => { closeBankList(); bankSearch.value = state.bank.name; });
+  bankSearch.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const first = bankList.querySelector('[role="option"]');
+      if (first) first.dispatchEvent(new MouseEvent('mousedown'));
+      bankSearch.blur();
+    } else if (e.key === 'Escape') bankSearch.blur();
+  });
+  selectBank(BANKS[0]);
+
+  /* ------------------------------------------------------------------ *
+   * Parsing helpers
+   * ------------------------------------------------------------------ */
+  const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+
+  function fullYear(y) {
+    y = Number(y);
+    if (y < 100) y += y < 70 ? 2000 : 1900;
+    return y;
+  }
+
+  function validYMD(y, m, d) {
+    if (!(y >= 1900 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31)) return null;
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    if (dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+    return `${y}${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}`;
+  }
+
+  /** Parse a date string into YYYYMMDD, or null. */
+  function parseDate(raw, fmt) {
+    const s = String(raw == null ? '' : raw).trim();
+    if (!s) return null;
+
+    let m = s.match(/^(\d{4})(\d{2})(\d{2})(?!\d)/); // compact YYYYMMDD
+    if (m) return validYMD(+m[1], +m[2], +m[3]);
+
+    m = s.match(/(\d{1,4})[\/\-. ](\d{1,2})[\/\-. ](\d{1,4})/);
+    if (m) {
+      const [a, b, c] = [m[1], m[2], m[3]];
+      if (a.length === 4) return validYMD(+a, +b, +c); // year-first is unambiguous
+      if (fmt === 'DMY') return validYMD(fullYear(c), +b, +a);
+      if (fmt === 'YMD') return validYMD(fullYear(a), +b, +c);
+      return validYMD(fullYear(c), +a, +b);
+    }
+
+    // Textual months: "05 Jan 2026", "Jan 5, 2026", "5-Jan-26"
+    m = s.match(/(\d{1,2})[\s\-]+([A-Za-z]{3,9})\.?[\s\-,]+(\d{2,4})/);
+    if (m && MONTHS[m[2].slice(0, 3).toLowerCase()]) return validYMD(fullYear(m[3]), MONTHS[m[2].slice(0, 3).toLowerCase()], +m[1]);
+    m = s.match(/([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{2,4})/);
+    if (m && MONTHS[m[1].slice(0, 3).toLowerCase()]) return validYMD(fullYear(m[3]), MONTHS[m[1].slice(0, 3).toLowerCase()], +m[2]);
+
+    return null;
+  }
+
+  function autoDetectDateFormat() {
+    const col = Number($('col-date').value);
+    let fmt = 'MDY', reason = 'defaulting to MM/DD/YYYY';
+    if (col >= 0) {
+      const samples = state.rows.map((r) => String(r[col] || '').trim()).filter(Boolean).slice(0, 500);
+      let yearFirst = 0, firstOver12 = 0, secondOver12 = 0, numeric = 0;
+      samples.forEach((s) => {
+        const m = s.match(/(\d{1,4})[\/\-. ](\d{1,2})[\/\-. ](\d{1,4})/);
+        if (!m) return;
+        numeric++;
+        if (m[1].length === 4) yearFirst++;
+        else if (+m[1] > 12) firstOver12++;
+        else if (+m[2] > 12) secondOver12++;
+      });
+      if (!numeric && samples.length) { fmt = 'MDY'; reason = 'text dates detected'; }
+      else if (yearFirst > numeric / 2) { fmt = 'YMD'; reason = 'YYYY-MM-DD'; }
+      else if (firstOver12 && !secondOver12) { fmt = 'DMY'; reason = 'DD/MM/YYYY'; }
+      else if (secondOver12 && !firstOver12) { fmt = 'MDY'; reason = 'MM/DD/YYYY'; }
+      else if (firstOver12 && secondOver12) { fmt = 'MDY'; reason = 'ambiguous — please pick a format'; }
+    }
+    state.detectedFormat = fmt;
+    $('date-detected').textContent = $('date-format').value === 'auto' ? `Detected: ${reason}` : '';
+  }
+  $('date-format').addEventListener('change', autoDetectDateFormat);
+
+  /** Parse an amount string into integer cents, or null if empty/unparseable. */
+  function parseAmountCents(raw) {
+    let s = String(raw == null ? '' : raw).trim();
+    if (!s) return null;
+    let neg = false;
+    if (/^\(.*\)$/.test(s)) neg = true;             // (45.20)
+    if (/-\s*$/.test(s)) neg = true;                 // 45.20-
+    if (/\bDR\b/i.test(s)) neg = true;               // 45.20 DR
+    if (/^\s*[^\d]*-/.test(s)) neg = true;           // -45.20, $-45.20, -$45.20
+    s = s.replace(/[^\d.,]/g, '');
+    if (!s || !/\d/.test(s)) return null;
+    const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+    if (lastComma > -1 && lastDot > -1) {
+      if (lastComma > lastDot) s = s.replace(/\./g, '').replace(',', '.'); // 1.234,56
+      else s = s.replace(/,/g, '');                                        // 1,234.56
+    } else if (lastComma > -1) {
+      s = /,\d{1,2}$/.test(s) && (s.match(/,/g) || []).length === 1 ? s.replace(',', '.') : s.replace(/,/g, '');
+    }
+    const v = Number(s);
+    if (!isFinite(v)) return null;
+    const cents = Math.round(v * 100);
+    return neg ? -cents : cents;
+  }
+
+  function formatCents(c) {
+    const sign = c < 0 ? '-' : '';
+    const abs = Math.abs(c);
+    return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`;
+  }
+
+  function formatMoney(c) {
+    const sign = c < 0 ? '-' : '';
+    const abs = Math.abs(c);
+    return `${sign}${Math.floor(abs / 100).toLocaleString('en-US')}.${String(abs % 100).padStart(2, '0')}`;
+  }
+
+  /** Clean a free-text field for USASCII/CP1252 SGML output. */
+  function cleanText(raw, maxLen) {
+    let s = String(raw == null ? '' : raw);
+    s = s.normalize('NFKD').replace(/[̀-ͯ]/g, '');  // strip accents
+    s = s.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-');
+    s = s.replace(/[^\x20-\x7E]/g, ' ').replace(/\s+/g, ' ').trim();
+    return s.slice(0, maxLen).trim();
+  }
+
+  function sgmlEscape(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function sanitizeId(s) {
+    return String(s || '').replace(/[^A-Za-z0-9\-]/g, '').slice(0, 22);
+  }
+
+  /** 53-bit string hash (cyrb53) → stable hex id. */
+  function hash(str) {
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).toUpperCase().padStart(14, '0');
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Conversion
+   * ------------------------------------------------------------------ */
+  function convert() {
+    const c = readConfig();
+    const txns = [];
+    const skipped = [];
+    const occurrences = {};
+
+    state.rows.forEach((row, i) => {
+      const lineNo = i + 1;
+      const date = parseDate(row[c.dateCol], c.dateFormat);
+      let cents = null;
+      if (c.mode === 'single') {
+        cents = parseAmountCents(row[c.amountCol]);
+      } else {
+        const d = parseAmountCents(row[c.debitCol]);
+        const cr = parseAmountCents(row[c.creditCol]);
+        if (d !== null || cr !== null) cents = Math.abs(cr || 0) - Math.abs(d || 0);
+      }
+      if (!date) { skipped.push({ lineNo, reason: 'unreadable date' }); return; }
+      if (cents === null) { skipped.push({ lineNo, reason: 'missing amount' }); return; }
+      if (c.flip) cents = -cents;
+
+      const payee = cleanText(row[c.payeeCol], 32) || 'UNKNOWN PAYEE';
+      const fullDesc = cleanText(row[c.payeeCol], 255);
+      let memo = c.memoCol >= 0 ? cleanText(row[c.memoCol], 255) : '';
+      if (!memo && fullDesc.length > payee.length) memo = fullDesc;
+
+      const key = `${date}|${cents}|${fullDesc}`;
+      occurrences[key] = (occurrences[key] || 0) + 1;
+      const fitid = `${date}${hash(`${c.acctId}|${key}|${occurrences[key]}`)}`;
+
+      txns.push({ date, cents, payee, memo, fitid, type: cents >= 0 ? 'CREDIT' : 'DEBIT' });
+    });
+
+    let net = 0, inflow = 0, outflow = 0, minDate = null, maxDate = null;
+    txns.forEach((t) => {
+      net += t.cents;
+      if (t.cents >= 0) inflow += t.cents; else outflow += t.cents;
+      if (!minDate || t.date < minDate) minDate = t.date;
+      if (!maxDate || t.date > maxDate) maxDate = t.date;
+    });
+
+    state.result = { txns, skipped, net, inflow, outflow, minDate, maxDate, config: c };
+    return state.result;
+  }
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  function nowStamp(d = new Date()) {
+    return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`;
+  }
+
+  function buildQbo(result) {
+    const c = result.config;
+    const stamp = nowStamp();
+    const today = stamp.slice(0, 8);
+    const trnuid = `${stamp}${Math.floor(Math.random() * 1e6).toString().padStart(6, '0')}`;
+
+    const items = result.txns.map((t) => {
+      const lines = [
+        '<STMTTRN>',
+        `<TRNTYPE>${t.type}`,
+        `<DTPOSTED>${t.date}000000`,
+        `<TRNAMT>${formatCents(t.cents)}`,
+        `<FITID>${t.fitid}`,
+        `<NAME>${sgmlEscape(t.payee)}`,
+      ];
+      if (t.memo) lines.push(`<MEMO>${sgmlEscape(t.memo)}`);
+      lines.push('</STMTTRN>');
+      return lines.join('\r\n');
+    }).join('\r\n');
+
+    const doc = [
+      'OFXHEADER:100',
+      'DATA:OFXSGML',
+      'VERSION:102',
+      'SECURITY:NONE',
+      'ENCODING:USASCII',
+      'CHARSET:1252',
+      'COMPRESSION:NONE',
+      'OLDFILEUID:NONE',
+      'NEWFILEUID:NONE',
+      '',
+      '<OFX>',
+      '<SIGNONMSGSRSV1>',
+      '<SONRS>',
+      '<STATUS>',
+      '<CODE>0',
+      '<SEVERITY>INFO',
+      '</STATUS>',
+      `<DTSERVER>${stamp}`,
+      '<LANGUAGE>ENG',
+      `<INTU.BID>${c.bid}`,
+      '</SONRS>',
+      '</SIGNONMSGSRSV1>',
+      '<BANKMSGSRSV1>',
+      '<STMTTRNRS>',
+      `<TRNUID>${trnuid}`,
+      '<STATUS>',
+      '<CODE>0',
+      '<SEVERITY>INFO',
+      '</STATUS>',
+      '<STMTRS>',
+      '<CURDEF>USD',
+      '<BANKACCTFROM>',
+      `<BANKID>${c.bankId}`,
+      `<ACCTID>${c.acctId}`,
+      `<ACCTTYPE>${c.acctType}`,
+      '</BANKACCTFROM>',
+      '<BANKTRANLIST>',
+      `<DTSTART>${result.minDate}000000`,
+      `<DTEND>${result.maxDate}000000`,
+      items,
+      '</BANKTRANLIST>',
+      '<LEDGERBAL>',
+      '<BALAMT>0.00',
+      `<DTASOF>${today}000000`,
+      '</LEDGERBAL>',
+      '</STMTRS>',
+      '</STMTTRNRS>',
+      '</BANKMSGSRSV1>',
+      '</OFX>',
+      '',
+    ];
+    return doc.join('\r\n');
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Step 3: preview
+   * ------------------------------------------------------------------ */
+  function renderPreview() {
+    const r = state.result;
+    $('stat-count').textContent = r.txns.length.toLocaleString('en-US');
+    const net = $('stat-net');
+    net.textContent = formatMoney(r.net);
+    net.className = 'mt-1 text-2xl font-bold ' + (r.net < 0 ? 'text-red-600' : 'text-emerald-700');
+    $('stat-in').textContent = '+' + formatMoney(r.inflow);
+    $('stat-out').textContent = formatMoney(r.outflow);
+    $('stat-range').textContent = r.minDate ? `${r.minDate} → ${r.maxDate}` : '—';
+
+    const warn = $('skip-warning');
+    if (r.skipped.length) {
+      const list = r.skipped.slice(0, 5).map((s) => `row ${s.lineNo} (${s.reason})`).join(', ');
+      warn.textContent = `${r.skipped.length} row(s) skipped: ${list}${r.skipped.length > 5 ? ', …' : ''}. Totals/summary rows are normally skipped automatically.`;
+      warn.classList.remove('hidden');
+    } else warn.classList.add('hidden');
+
+    const tbody = $('preview-body');
+    tbody.innerHTML = '';
+    r.txns.slice(0, 10).forEach((t, i) => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50';
+      const cells = [
+        [String(i + 1), 'px-4 py-2.5 text-slate-400'],
+        [t.date, 'px-4 py-2.5 font-mono text-slate-700'],
+        [t.payee, 'px-4 py-2.5 text-slate-900'],
+        [t.type, 'px-4 py-2.5'],
+        [formatCents(t.cents), 'px-4 py-2.5 text-right font-mono font-semibold ' + (t.cents < 0 ? 'text-red-600' : 'text-emerald-700')],
+      ];
+      cells.forEach(([text, cls], ci) => {
+        const td = document.createElement('td');
+        td.className = cls;
+        if (ci === 3) {
+          const badge = document.createElement('span');
+          badge.className = 'text-xs font-semibold rounded px-2 py-0.5 ' + (t.cents < 0 ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700');
+          badge.textContent = text;
+          td.appendChild(badge);
+        } else td.textContent = text;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    if (r.txns.length > 10) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 5;
+      td.className = 'px-4 py-3 text-center text-xs text-slate-400';
+      td.textContent = `+ ${(r.txns.length - 10).toLocaleString('en-US')} more transactions will be included in the file`;
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Step 4: download
+   * ------------------------------------------------------------------ */
+  function outputName() {
+    const base = (state.fileName || 'statement').replace(/\.[^.]+$/, '').replace(/[^\w\-]+/g, '_') || 'statement';
+    return `${base}.qbo`;
+  }
+
+  function renderDownloadSummary() {
+    const r = state.result;
+    $('download-summary').textContent =
+      `${r.txns.length.toLocaleString('en-US')} transactions · ${r.minDate} → ${r.maxDate} · ${r.config.acctType} · BID ${r.config.bid} → ${outputName()}`;
+    $('download-done').classList.add('hidden');
+  }
+
+  $('download-btn').addEventListener('click', () => {
+    const r = convert();
+    if (!r.txns.length) return;
+    const blob = new Blob([buildQbo(r)], { type: 'application/vnd.intu.qbo' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = outputName();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    $('download-done').classList.remove('hidden');
+  });
+
+  $('restart-btn').addEventListener('click', () => {
+    Object.assign(state, { headers: [], rows: [], fileName: '', result: null, maxStep: 1 });
+    goTo(1);
+  });
+
+  // Expose pure helpers for testing in the console (no side effects).
+  window.QBOFlow = { parseDate, parseAmountCents, cleanText, buildQbo, convert };
+
+  /* ------------------------------------------------------------------ *
+   * Init
+   * ------------------------------------------------------------------ */
+  $('year').textContent = new Date().getFullYear();
+  setAmountMode('single');
+  renderStepper();
+  refreshIcons();
+})();
+</script>
+</body>
+</html>
